@@ -15,103 +15,126 @@ pub const INDEX_HTML: &str = r##"<!DOCTYPE html>
 <title>Freebuff2API 控制台</title>
 <style>
 :root {
-  /* 色板（品牌化暗色：主色 #4f8cff 系 + 状态语义色） */
-  --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e;
-  --accent:#4f8cff; --accent-soft:#132a4a; --ok:#3fb950; --warn:#d29922; --err:#f85149;
+  /* 色板：深空底 + 靛紫渐变主色 + 状态语义色 */
+  --bg:#0a0d15; --card:rgba(255,255,255,.04); --border:rgba(255,255,255,.09); --text:#e9eef8; --muted:#8e99ad;
+  --accent:#6d8bff; --accent2:#a78bfa; --accent-soft:rgba(109,139,255,.13);
+  --ok:#3ecf6e; --warn:#e8b13f; --err:#f4655f;
   /* 间距 token */
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px;
   /* 圆角 token */
-  --r-sm:6px; --r-md:10px; --r-lg:14px;
+  --r-sm:8px; --r-md:12px; --r-lg:16px;
   /* 阴影 token */
-  --sh-card:0 1px 2px rgba(0,0,0,.4); --sh-float:0 8px 24px rgba(0,0,0,.5);
+  --sh-card:0 1px 2px rgba(0,0,0,.28); --sh-float:0 14px 44px rgba(0,0,0,.55);
   /* 动效 token */
   --dur-fast:120ms; --dur-norm:200ms; --ease-out:cubic-bezier(.16,1,.3,1);
 }
 * { box-sizing:border-box; margin:0; padding:0; }
-body { background:var(--bg); color:var(--text); font-family:-apple-system,'Segoe UI',Roboto,'Microsoft YaHei',sans-serif; min-height:100vh; }
+body { background:radial-gradient(1100px 560px at 85% -12%, rgba(109,139,255,.12), transparent 62%), radial-gradient(860px 480px at -12% 8%, rgba(167,139,250,.09), transparent 55%), var(--bg); color:var(--text); font-family:'Inter',-apple-system,'Segoe UI',Roboto,'Microsoft YaHei',sans-serif; min-height:100vh; -webkit-font-smoothing:antialiased; }
 /* 尊重减少动效偏好 */
 @media (prefers-reduced-motion: reduce) {
   * { animation:none !important; transition:none !important; }
 }
-header { display:flex; align-items:center; justify-content:space-between; padding:var(--sp-3) var(--sp-6); border-bottom:1px solid var(--border); background:var(--card); position:sticky; top:0; z-index:10; }
-header h1 { font-size:17px; font-weight:600; }
-header .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--muted); margin-right:var(--sp-2); vertical-align:middle; }
-header .dot.ok { background:var(--ok); } header .dot.err { background:var(--err); }
+header { display:flex; align-items:center; justify-content:space-between; padding:var(--sp-3) var(--sp-6); border-bottom:1px solid var(--border); background:rgba(12,15,24,.78); backdrop-filter:blur(12px); position:sticky; top:0; z-index:10; }
+header h1 { font-size:17px; font-weight:600; letter-spacing:.2px; }
+header .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--muted); margin-right:var(--sp-2); vertical-align:middle; box-shadow:0 0 0 3px rgba(255,255,255,.05); }
+header .dot.ok { background:var(--ok); box-shadow:0 0 8px rgba(62,207,110,.7); } header .dot.err { background:var(--err); box-shadow:0 0 8px rgba(244,101,95,.7); }
 /* 记忆层总开关（toggle switch） */
 .switch { position:relative; display:inline-block; width:42px; height:24px; flex:none; }
 .switch input { opacity:0; width:0; height:0; }
-.switch .slider { position:absolute; cursor:pointer; inset:0; background:#2d333b; border-radius:24px; transition:var(--dur-fast) var(--ease-out); }
-.switch .slider::before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:#e6edf3; border-radius:50%; transition:var(--dur-fast) var(--ease-out); }
-.switch input:checked + .slider { background:var(--accent); }
+.switch .slider { position:absolute; cursor:pointer; inset:0; background:rgba(255,255,255,.12); border-radius:24px; transition:var(--dur-fast) var(--ease-out); }
+.switch .slider::before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:#e9eef8; border-radius:50%; transition:var(--dur-fast) var(--ease-out); }
+.switch input:checked + .slider { background:linear-gradient(135deg,var(--accent),var(--accent2)); }
 .switch input:checked + .slider::before { transform:translateX(18px); }
 .hstat { display:flex; gap:var(--sp-4); font-size:12px; color:var(--muted); }
 .hstat b { color:var(--text); }
 main { max-width:1240px; margin:0 auto; padding:var(--sp-5) var(--sp-6) 60px; }
-nav { display:flex; gap:var(--sp-1); margin-bottom:var(--sp-5); border-bottom:1px solid var(--border); flex-wrap:wrap; }
-nav button { background:transparent; border:none; color:var(--muted); padding:10px 16px; cursor:pointer; font-size:14px; border-bottom:2px solid transparent; border-radius:0; }
-nav button.active { color:var(--text); border-bottom-color:var(--accent); }
+nav { display:flex; gap:4px; margin-bottom:var(--sp-5); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+nav button { background:transparent; border:none; color:var(--muted); padding:10px 16px; cursor:pointer; font-size:13.5px; border-radius:10px 10px 0 0; border-bottom:2px solid transparent; transition:color var(--dur-fast), background var(--dur-fast); }
+nav button.active { color:var(--text); border-bottom-color:var(--accent); background:linear-gradient(180deg, rgba(109,139,255,.14), rgba(109,139,255,.03)); }
 nav button:hover { color:var(--text); }
 /* 焦点可见环（可访问性） */
-button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline:2px solid #79b8ff; outline-offset:2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline:2px solid #86a5ff; outline-offset:2px; }
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 .seg { display:inline-flex; border:1px solid var(--border); border-radius:var(--r-sm); overflow:hidden; }
 .seg button { background:transparent; color:var(--muted); padding:6px 12px; border-radius:0; font-size:12px; }
 .seg button.active { background:var(--accent-soft); color:var(--text); }
-#cred-warn .banner { border-color:var(--warn); background:linear-gradient(135deg,#3a2c0a,#161b22); }
+#cred-warn .banner { border-color:var(--warn); background:linear-gradient(135deg,rgba(232,177,63,.14),rgba(255,255,255,.03)); }
 #cred-warn .banner a, #cred-warn .banner button { color:var(--warn); }
 .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:var(--sp-5); }
-.card { background:var(--card); border:1px solid var(--border); border-radius:var(--r-md); padding:14px 16px; box-shadow:var(--sh-card); transition:transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast); }
-.card:hover { transform:translateY(-1px); border-color:#3a4250; }
-.card .num { font-size:26px; font-weight:700; margin-top:var(--sp-1); }
+.card { background:linear-gradient(160deg, rgba(255,255,255,.055), rgba(255,255,255,.02)); border:1px solid var(--border); border-radius:var(--r-md); padding:14px 16px; box-shadow:var(--sh-card); transition:transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast); }
+.card:hover { transform:translateY(-1px); border-color:rgba(109,139,255,.4); }
+.card .num { font-size:26px; font-weight:700; margin-top:var(--sp-1); background:linear-gradient(90deg,#fff,#b9c6e8); -webkit-background-clip:text; background-clip:text; color:transparent; }
 .card .lbl { color:var(--muted); font-size:13px; }
 .grid { display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-5); }
 @media(max-width:920px){ .grid{grid-template-columns:1fr} }
-.panel { background:var(--card); border:1px solid var(--border); border-radius:var(--r-md); padding:var(--sp-4); margin-bottom:var(--sp-5); box-shadow:var(--sh-card); }
+.panel { background:linear-gradient(165deg, rgba(255,255,255,.045), rgba(255,255,255,.018)); border:1px solid var(--border); border-radius:var(--r-md); padding:var(--sp-4); margin-bottom:var(--sp-5); box-shadow:var(--sh-card); }
 .panel h2 { font-size:15px; margin-bottom:var(--sp-3); color:var(--muted); font-weight:600; }
 .panel h1 { font-size:18px; margin-bottom:var(--sp-3); }
+/* ---- 快速接入 hero 卡 ---- */
+.hero { position:relative; padding:var(--sp-6); border:1px solid transparent; background:linear-gradient(rgba(14,17,27,.92), rgba(14,17,27,.92)) padding-box, linear-gradient(135deg, rgba(109,139,255,.65), rgba(167,139,250,.4) 45%, rgba(255,255,255,.08)) border-box; box-shadow:0 0 44px rgba(109,139,255,.09), var(--sh-card); }
+.hero-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.hero-title { font-size:20px; font-weight:700; background:linear-gradient(90deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.hero-sub { color:var(--muted); font-size:13px; margin-top:4px; }
+.hero-status { font-size:12px; }
+.hero-grid { display:grid; grid-template-columns:1.15fr 1fr; gap:var(--sp-5); margin-top:16px; }
+@media(max-width:920px){ .hero-grid{grid-template-columns:1fr} }
+.copy-row { display:flex; gap:8px; align-items:center; }
+.copy-row input { font-family:ui-monospace,Consolas,monospace; font-size:12.5px; background:rgba(0,0,0,.38); border-color:rgba(255,255,255,.12); }
+.copy-row input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(109,139,255,.15); }
+.copy-btn { white-space:nowrap; background:linear-gradient(135deg,var(--accent),#5470e8); font-weight:600; }
+.hero-variants { display:grid; gap:8px; margin-top:8px; }
+.hero-variants .copy-row input { color:var(--muted); font-size:12px; }
+#c-key-hint, #c-model-hint { font-size:12px; color:var(--muted); margin-top:8px; line-height:1.7; }
+#c-model-hint { margin-top:4px; }
+.client-chips { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:16px; padding-top:14px; border-top:1px dashed var(--border); }
+.client-chips-label { font-size:12px; color:var(--muted); }
+.chip-btn { background:rgba(109,139,255,.10); border:1px solid rgba(109,139,255,.38); color:#c9d6ff; border-radius:999px; padding:6px 14px; font-size:12.5px; font-weight:500; transition:background var(--dur-fast), border-color var(--dur-fast), transform var(--dur-fast); }
+.chip-btn:hover { background:rgba(109,139,255,.22); border-color:var(--accent); filter:none; }
+.chip-btn:active { transform:scale(.97); }
 table { width:100%; border-collapse:collapse; font-size:13px; }
 th,td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--border); }
 th { color:var(--muted); font-weight:500; }
-tr.click { cursor:pointer; } tr.click:hover { background:#1c2129; }
+tr.click { cursor:pointer; } tr.click:hover { background:rgba(109,139,255,.07); }
 .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:12px; }
-.badge.ok { background:#1a5e2a; color:var(--ok); }
-.badge.warn { background:#5a4a1a; color:var(--warn); }
-.badge.err { background:#5e1a1a; color:var(--err); }
-.badge.dim { background:#21262d; color:var(--muted); }
-.chip { display:inline-block; background:#21262d; border:1px solid var(--border); border-radius:var(--r-sm); padding:2px 8px; margin:2px; font-size:12px; }
-button { background:var(--accent); color:#fff; border:none; border-radius:var(--r-sm); padding:6px 14px; cursor:pointer; font-size:13px; transition:filter var(--dur-fast); }
+.badge.ok { background:rgba(62,207,110,.14); color:var(--ok); }
+.badge.warn { background:rgba(232,177,63,.15); color:var(--warn); }
+.badge.err { background:rgba(244,101,95,.15); color:var(--err); }
+.badge.dim { background:rgba(255,255,255,.07); color:var(--muted); }
+.chip { display:inline-block; background:rgba(255,255,255,.06); border:1px solid var(--border); border-radius:var(--r-sm); padding:2px 8px; margin:2px; font-size:12px; }
+button { background:linear-gradient(135deg,var(--accent),#5470e8); color:#fff; border:none; border-radius:var(--r-sm); padding:7px 16px; cursor:pointer; font-size:13px; font-weight:500; transition:filter var(--dur-fast), transform var(--dur-fast); }
 button:hover { filter:brightness(1.12); }
+button:active { transform:scale(.98); }
 button:disabled { opacity:.5; cursor:not-allowed; }
-button.ghost { background:transparent; border:1px solid var(--border); color:var(--text); }
-button.ghost:hover { border-color:var(--accent); color:var(--accent); }
+button.ghost { background:rgba(255,255,255,.04); border:1px solid var(--border); color:var(--text); }
+button.ghost:hover { border-color:var(--accent); color:var(--accent); filter:none; }
 button.sm { padding:3px 10px; font-size:12px; }
-input,textarea,select { background:#0d1117; border:1px solid var(--border); color:var(--text); border-radius:var(--r-sm); padding:8px 10px; font-size:13px; width:100%; font-family:inherit; transition:border-color var(--dur-fast); }
-input:focus,textarea:focus,select:focus { border-color:var(--accent); }
+input,textarea,select { background:rgba(0,0,0,.32); border:1px solid var(--border); color:var(--text); border-radius:var(--r-sm); padding:8px 10px; font-size:13px; width:100%; font-family:inherit; transition:border-color var(--dur-fast), box-shadow var(--dur-fast); }
+input:focus,textarea:focus,select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(109,139,255,.13); }
 textarea { min-height:90px; resize:vertical; }
 label { display:block; color:var(--muted); font-size:12px; margin:var(--sp-2) 0 var(--sp-1); }
 .row { display:flex; gap:var(--sp-2); align-items:center; flex-wrap:wrap; }
 .empty { color:var(--muted); font-size:13px; padding:14px 4px; }
 .empty b { color:var(--text); }
-#toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--card); border:1px solid var(--accent); padding:10px 20px; border-radius:var(--r-md); display:none; z-index:100; font-size:13px; box-shadow:var(--sh-float); animation:toastIn var(--dur-norm) var(--ease-out); }
+#toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:rgba(18,22,34,.96); border:1px solid var(--accent); padding:10px 20px; border-radius:var(--r-md); display:none; z-index:100; font-size:13px; box-shadow:var(--sh-float); animation:toastIn var(--dur-norm) var(--ease-out); }
 @keyframes toastIn { from { opacity:0; transform:translate(-50%,8px); } to { opacity:1; transform:translate(-50%,0); } }
-.logs { max-height:460px; overflow:auto; font-family:ui-monospace,Consolas,monospace; font-size:12px; background:#0a0d12; border:1px solid var(--border); border-radius:var(--r-md); padding:var(--sp-2); }
-.logs div { padding:2px 4px; border-bottom:1px dashed #1c2129; white-space:pre-wrap; word-break:break-all; }
+.logs { max-height:460px; overflow:auto; font-family:ui-monospace,Consolas,monospace; font-size:12px; background:rgba(0,0,0,.35); border:1px solid var(--border); border-radius:var(--r-md); padding:var(--sp-2); }
+.logs div { padding:2px 4px; border-bottom:1px dashed rgba(255,255,255,.06); white-space:pre-wrap; word-break:break-all; }
 .logs .lv-warn { color:var(--warn); } .logs .lv-error { color:var(--err); } .logs .lv-info { color:var(--muted); }
-#drawer { position:fixed; top:0; right:-560px; width:560px; max-width:92vw; height:100vh; background:var(--card); border-left:1px solid var(--border); transition:right var(--dur-norm) var(--ease-out); overflow:auto; padding:var(--sp-5); z-index:50; box-shadow:var(--sh-float); }
+#drawer { position:fixed; top:0; right:-560px; width:560px; max-width:92vw; height:100vh; background:rgba(14,17,26,.98); border-left:1px solid var(--border); transition:right var(--dur-norm) var(--ease-out); overflow:auto; padding:var(--sp-5); z-index:50; box-shadow:var(--sh-float); }
 #drawer.open { right:0; }
 #drawer h3 { margin-bottom:10px; }
 .kv { font-size:13px; margin:4px 0; } .kv b { color:var(--muted); font-weight:500; display:inline-block; min-width:110px; }
-pre { background:#0a0d12; border:1px solid var(--border); border-radius:var(--r-md); padding:10px; overflow:auto; font-size:12px; }
+pre { background:rgba(0,0,0,.38); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:var(--r-md); padding:12px 14px; overflow:auto; font-size:12.5px; line-height:1.75; font-family:ui-monospace,Consolas,monospace; color:#cdd6e4; }
 details { margin:6px 0; } summary { cursor:pointer; color:var(--muted); font-size:13px; }
-.banner { background:linear-gradient(135deg,var(--accent-soft),#161b22); border:1px solid var(--accent); border-radius:var(--r-lg); padding:var(--sp-4); margin-bottom:var(--sp-5); }
+.banner { background:linear-gradient(135deg,var(--accent-soft),rgba(255,255,255,.02)); border:1px solid rgba(109,139,255,.45); border-radius:var(--r-lg); padding:var(--sp-4); margin-bottom:var(--sp-5); }
 .banner h2 { color:var(--text); margin-bottom:var(--sp-2); }
 .banner ol { margin-left:var(--sp-5); font-size:13px; color:var(--muted); line-height:2; }
-.banner code { background:#0a0d12; padding:2px 6px; border-radius:var(--r-sm); }
+.banner code { background:rgba(0,0,0,.4); padding:2px 6px; border-radius:var(--r-sm); }
 .doctor-item { display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; align-items:flex-start; }
 .doctor-item .st { min-width:56px; }
 .tok { color:var(--ok); } .twarn { color:var(--warn); } .terr { color:var(--err); }
 #login-wizard { scroll-margin-top:70px; }
-@keyframes wizardFlash { 0%,100% { box-shadow:0 0 0 0 rgba(79,140,255,0); } 50% { box-shadow:0 0 0 4px rgba(79,140,255,.5); } }
+@keyframes wizardFlash { 0%,100% { box-shadow:0 0 0 0 rgba(109,139,255,0); } 50% { box-shadow:0 0 0 4px rgba(109,139,255,.5); } }
 .wizard-flash { animation:wizardFlash .8s ease-in-out 2; }
 /* 窄屏导航横向滚动（v0.8 可访问性） */
 @media(max-width:640px){ nav{ flex-wrap:nowrap; overflow-x:auto; } nav button{ flex:none; min-height:44px; } button:not(.sm), input, select, textarea { min-height:44px; } }
@@ -143,35 +166,45 @@ details { margin:6px 0; } summary { cursor:pointer; color:var(--muted); font-siz
   </nav>
 
   <section role="tabpanel" aria-labelledby="tab-btn-overview" id="tab-overview" tabindex="0">
-    <!-- 立刻开始请求：地址 + Key + 一键复制（回答"导入凭证之后呢？"） -->
-    <div class="panel" id="connect-panel">
-      <div class="row" style="margin-bottom:10px">
-        <h2 style="margin:0">🚀 立刻开始请求</h2>
-        <span style="flex:1"></span>
-        <span id="connect-ready" style="font-size:12px;color:var(--muted)"></span>
+    <!-- 快速接入：Base URL + API Key + 一键复制客户端配置 -->
+    <div class="panel hero" id="connect-panel">
+      <div class="hero-head">
+        <div>
+          <div class="hero-title">🚀 快速接入</div>
+          <div class="hero-sub">复制下面两项填进客户端即可开始；或点底部按钮直接复制现成配置片段</div>
+        </div>
+        <span id="connect-ready" class="hero-status"></span>
       </div>
-      <div class="grid" style="gap:16px">
+      <div class="hero-grid">
         <div>
           <label>接口地址（Base URL）</label>
-          <div class="row"><input id="c-base" readonly style="flex:1"><button class="ghost sm" onclick="copyText(document.getElementById('c-base').value)">复制</button></div>
-          <label style="margin-top:8px">OpenAI 协议地址（Cursor / LobeChat / SDK）</label>
-          <div class="row"><input id="c-openai" readonly style="flex:1"><button class="ghost sm" onclick="copyText(document.getElementById('c-openai').value)">复制</button></div>
-          <label style="margin-top:8px">Anthropic 协议地址（Claude Code）</label>
-          <div class="row"><input id="c-anthropic" readonly style="flex:1"><button class="ghost sm" onclick="copyText(document.getElementById('c-anthropic').value)">复制</button></div>
+          <div class="copy-row"><input id="c-base" readonly><button class="copy-btn" onclick="copyText(document.getElementById('c-base').value)">复制</button></div>
+          <div class="hero-variants">
+            <div class="copy-row"><input id="c-openai" readonly title="OpenAI 协议地址（Cursor / LobeChat / SDK）"><button class="ghost sm" onclick="copyText(document.getElementById('c-openai').value)">复制</button></div>
+            <div class="copy-row"><input id="c-anthropic" readonly title="Anthropic 协议地址（Claude Code）"><button class="ghost sm" onclick="copyText(document.getElementById('c-anthropic').value)">复制</button></div>
+          </div>
         </div>
         <div>
           <label>API Key</label>
-          <div class="row"><input id="c-key" readonly style="flex:1"><button class="ghost sm" onclick="copyText(document.getElementById('c-key').value)">复制</button></div>
+          <div class="copy-row"><input id="c-key" readonly><button class="copy-btn" onclick="copyText(document.getElementById('c-key').value)">复制</button></div>
           <div class="row" style="margin-top:8px">
-            <button class="sm" onclick="genApiKey()">生成并启用 Key</button>
+            <button class="ghost sm" onclick="genApiKey()">生成并启用 Key</button>
             <button class="ghost sm" onclick="clearApiKey()">清除 Key</button>
           </div>
-          <div id="c-key-hint" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
-          <div id="c-model-hint" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
+          <div id="c-key-hint"></div>
+          <div id="c-model-hint"></div>
         </div>
       </div>
-      <div style="margin-top:12px;font-size:13px;color:var(--muted)">把上面两项填进客户端就能用了 —— 现成配置片段见
-        <a href="#" onclick="showTab('guide');return false" style="color:var(--accent)">接入指南</a>。</div>
+      <div class="client-chips">
+        <span class="client-chips-label">⚡ 一键复制客户端配置：</span>
+        <button class="chip-btn" onclick="copyText(document.getElementById('g-claude').textContent)">Claude Code</button>
+        <button class="chip-btn" onclick="copyText(document.getElementById('g-codex').textContent)">Codex CLI</button>
+        <button class="chip-btn" onclick="copyText(document.getElementById('g-openai').textContent)">Cursor / OpenAI</button>
+        <button class="chip-btn" onclick="copyText(document.getElementById('g-py').textContent)">Python SDK</button>
+        <button class="chip-btn" onclick="copyText(document.getElementById('g-node').textContent)">Node.js SDK</button>
+        <button class="chip-btn" onclick="copyText(document.getElementById('g-curl').textContent)">curl 验证</button>
+        <button class="chip-btn" onclick="showTab('guide')">更多 ›</button>
+      </div>
     </div>
 
     <div class="grid">
@@ -429,6 +462,9 @@ details { margin:6px 0; } summary { cursor:pointer; color:var(--muted); font-siz
 
       <h2 style="margin-top:16px">Claude Code（Anthropic 协议）</h2>
       <pre id="g-claude"></pre><button class="ghost sm" onclick="copyText(document.getElementById('g-claude').textContent)">复制</button>
+
+      <h2 style="margin-top:16px">Codex CLI（OpenAI 兼容）</h2>
+      <pre id="g-codex"></pre><button class="ghost sm" onclick="copyText(document.getElementById('g-codex').textContent)">复制</button>
 
       <h2 style="margin-top:16px">Cursor / Continue / 通用 OpenAI 客户端</h2>
       <pre id="g-openai"></pre><button class="ghost sm" onclick="copyText(document.getElementById('g-openai').textContent)">复制</button>
@@ -892,6 +928,8 @@ function fillGuide(g) {
     ? '已在面板生成并启用了 API Key —— 客户端必须填这个 Key（本页面右上角已自动记住）'
     : 'config.json 未配置 api_keys 时，任意字符串即可（如 <code>sk-local</code>）';
   $('g-claude').textContent = `# macOS / Linux\nexport ANTHROPIC_BASE_URL=${base}\nexport ANTHROPIC_API_KEY=${key}\n\n# Windows PowerShell\n$env:ANTHROPIC_BASE_URL="${base}"\n$env:ANTHROPIC_API_KEY="${key}"\n\n# 然后正常启动 Claude Code 即可（claude 命令）`;
+  const gcx = $('g-codex');
+  if (gcx) gcx.textContent = `# ~/.codex/config.toml\nmodel = "${model}"\n\n[model_providers.freebuff]\nname = "Freebuff2API"\nbase_url = "${base}/v1"\nwire_api = "chat"\nenv_key = "FREEBUFF_API_KEY"\n\n# 启动前设置 Key（Windows 用 setx 持久化）：\n#   export FREEBUFF_API_KEY=${key}\n# 然后运行 codex 即可`;
   $('g-openai').textContent = `Base URL: ${base}/v1\nAPI Key:  ${key}\n模型:     在 ${base}/v1/models 中选一个（共 ${(g && g.models_count) || '?'} 个）`;
   $('g-py').textContent = `from openai import OpenAI\nclient = OpenAI(base_url="${base}/v1", api_key="${key}")\nresp = client.chat.completions.create(model="${model}", messages=[{"role":"user","content":"你好"}])\nprint(resp.choices[0].message.content)`;
   $('g-node').textContent = `import OpenAI from "openai";\nconst client = new OpenAI({ baseURL: "${base}/v1", apiKey: "${key}" });\nconst r = await client.chat.completions.create({ model: "${model}", messages: [{ role: "user", content: "你好" }] });\nconsole.log(r.choices[0].message.content);`;
