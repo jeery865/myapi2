@@ -1149,9 +1149,22 @@ function sendToExtension(msg) {
     } catch (e) { clearTimeout(timer); reject(e); }
   });
 }
-function downloadExtension() {
-  const k = apiKey();
-  window.open('/api/extension/bundle' + (k ? '?key=' + encodeURIComponent(k) : ''), '_blank');
+async function downloadExtension() {
+  // 不能再用 window.open：GET 导航不带 Authorization 头，也没法自定义头。
+  // 公网部署（Railway）下 admin 接口要求鉴权，window.open 必然 403 → 按钮"没用"。
+  // 改为 fetch（自动带面板里保存的 Key）+ Blob 落地。
+  try {
+    const r = await fetch('/api/extension/bundle', { headers: apiKey() ? { 'authorization': 'Bearer ' + apiKey() } : {} });
+    if (!r.ok) { let m = 'HTTP ' + r.status; try { const j = await r.json(); m = j.message || m; } catch (e) {} throw new Error(m); }
+    const b = await r.blob();
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = u;
+    a.download = 'freebuff2api-extension.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 5000);
+    toast('扩展 zip 已开始下载');
+  } catch (e) { toast('下载扩展失败：' + e.message, 6000); }
 }
 
 // ---------- 账号 / 导入 ----------
