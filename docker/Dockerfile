@@ -30,6 +30,13 @@ RUN mkdir -p src \
  && echo '' > src/lib.rs \
  && cargo build --release --locked 2>/dev/null || true
 
+# src/extension.rs 用 include_str!/include_bytes! 内嵌 browser-extension/ 的 7 个文件，
+# src/models.rs 内嵌 tests/fixtures/freebuff-models.snapshot.json。
+# 不拷这两处，cargo build 会报 couldn't read src/../browser-extension/...（No such file）。
+# 放在 src/ 之前拷，业务代码改动不会使这两层缓存失效。
+COPY browser-extension/ browser-extension/
+COPY tests/fixtures/ tests/fixtures/
+
 COPY src/ src/
 RUN cargo build --release --locked
 
