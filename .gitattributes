@@ -1,0 +1,16 @@
+# 归一化行尾：团队既有 Windows 也有 Linux 开发机，
+# 不锁的话 shell 脚本一旦被 checkout 成 CRLF，容器里 /bin/sh 会报 "not found"。
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.rs   text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.md   text eol=lf
+
+# 二进制
+*.exe  binary
+*.png  binary
+*.ico  binary
+*.icns binary

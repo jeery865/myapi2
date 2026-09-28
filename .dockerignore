@@ -1,0 +1,40 @@
+# 构建上下文只喂给 Rust 编译，把跟编译无关的东西挡在 context 外面。
+# Docker builder 会先把整个 context 打包上传，仓库里的测试脚本、Electron 壳、
+# CF Worker、Go 归档全传一遍纯属浪费时间。
+#
+# ⚠️ 不要排除 docker/ —— Dockerfile 里的 COPY docker/entrypoint.sh 依赖它。
+
+.git
+.github
+.gitignore
+.dockerignore
+
+# Rust 产物
+target
+**/*.rs.bk
+
+# 与网关二进制无关的子项目
+desktop
+browser-extension
+cfworker
+legacy-go
+scripts
+tests
+
+# 文档与平台配置（编译不需要）
+*.md
+docs
+railway.json
+
+# 本地运行时数据（绝不该进镜像）
+data
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+config.json
+config2.json
+*.log
+*.exe
+*.bat
+.DS_Store
+Thumbs.db

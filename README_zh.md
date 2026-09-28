@@ -1,0 +1,225 @@
+# Freebuff2API（中文使用手册）
+
+> Rust(axum) 版。主文档：[README.md](README.md)｜English: [README_en.md](README_en.md)
+
+Freebuff2API 把 [Freebuff](https://freebuff.com) 免费层的模型逆向为 **OpenAI 兼容**与 **Anthropic 兼容** 的本地 API 网关。单二进制、零依赖，可在任意 OpenAI/Claude 客户端（Claude Code、Codex、Cursor、LobeChat、NextChat 等）中使用 Freebuff 免费模型。
+
+---
+
+## 一、快速开始（3 步）
+
+### 第 1 步：安装
+
+**桌面版（推荐，小白首选）**
+
+1. 打开 [Releases 页面](https://github.com/lza6/Freebuff-2API/releases) 下载 `Freebuff2API Setup x.y.z.exe`
+2. 双击安装（一路「下一步」）
+3. 安装完成后启动，程序会自动拉起网关并打开控制台
+
+**源码 / 服务器**
+
+```bash
+# Windows 一键编译
+build.bat
+
+# 或手动
+cargo build --release
+./target/release/freebuff2api --config config.json
+```
+
+### 第 2 步：添加账号
+
+面板「账号」页 →「添加账号」卡片，三种方式任选其一：
+
+| 方式 | 适合谁 | 怎么做 |
+|------|--------|--------|
+| **一键登录（全自动）** | 浏览器用户（推荐） | 装一次扩展（面板「⬇ 下载扩展」→ `chrome://extensions` 开发者模式加载）→ 回面板点「重新检测」→ 点「🔑 一键登录」→ 扩展自动打开 freebuff.com，你登录完凭证就自动入库 |
+| 一键登录（桌面版） | 桌面安装包用户 | 托盘菜单 →「➕ 一键登录新账号」→ 浏览器里登录 freebuff.com → Cookie 自动入库（Electron 主进程直接读，无需扩展） |
+| 粘贴导入 | 不想装扩展 | 面板点「一键登录」→ 按 3 步向导：浏览器 F12 → Network → 复制 `Cookie:` 整行 → 粘贴到导入框 |
+| 文件导入 | 开发者 | 把 curl 命令或 HAR 文件内容粘贴到导入框 |
+
+> 为什么浏览器版要装扩展？上游登录 Cookie 是 **HttpOnly**（浏览器安全策略禁止网页脚本读取），扩展的 `chrome.cookies` 是浏览器上唯一合法的读取途径。
+> 凭证按值**自动去重**，列表里能看到**账号昵称/邮箱、套餐、今日剩余积分、入库时间**，每行可「检查 / 详情 / 删除」。
+> 多账号可重复添加，网关自动轮询、健康评分、失败冷却（Bearer 账号池全量轮询；v0.9 起 web Cookie 凭证同样池化：健康分/熔断/冷却/轮询，401/403 自动冷却换号）。
+
+> v0.10：上游模型策略实时化（availability 时间窗 + availableAt + 快照同步）、面板可访问性（ARIA/键盘/44px 触控）、"三最"观测（/api/usage/insights）、web 凭证池全冷却结构化降级（web_pool_exhausted）。
+
+### 第 3 步：接入你的客户端
+
+网关默认监听 `http://127.0.0.1:47821`。**面板「总览」页顶部「🚀 立刻开始请求」卡片直接给出地址与 Key，可一键复制**；下面是等价的手抄版：
+
+**Claude Code**（Anthropic 协议）
+
+```bash
+# macOS / Linux
+export ANTHROPIC_BASE_URL=http://127.0.0.1:47821
+export ANTHROPIC_API_KEY=sk-local   # 未配置 api_keys 时可随意填；面板可一键生成真 Key
+
+# Windows PowerShell
+$env:ANTHROPIC_BASE_URL="http://127.0.0.1:47821"
+$env:ANTHROPIC_API_KEY="sk-local"
+```
+
+**Cursor / Continue / 任意 OpenAI 兼容客户端**
+
+```
+Base URL: http://127.0.0.1:47821/v1
+API Key:  sk-local（未配置 api_keys 时随意填；或点面板「生成并启用 Key」）
+模型:      从 http://127.0.0.1:47821/v1/models 的列表里选
+```
+
+**OpenAI SDK（Python）**
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://127.0.0.1:47821/v1", api_key="sk-local")
+resp = client.chat.completions.create(
+    model="z-ai/glm-5.3-flash",   # 换成 /v1/models 里的模型
+    messages=[{"role": "user", "content": "你好"}],
+)
+print(resp.choices[0].message.content)
+```
+
+**LobeChat / NextChat / Cherry Studio**：在设置里选「OpenAI」，接口地址填 `http://127.0.0.1:47821/v1`，密钥随意，模型名手填 `/v1/models` 列表中的值。
+
+---
+
+## 二、配置（config.json）
+
+```jsonc
+{
+  "listen_addr": "127.0.0.1:47821",       // 监听地址（默认本机；对外提供服务再改 0.0.0.0）
+  "upstream_base_url": "https://www.codebuff.com",
+  "auth_tokens": ["bearer-token-1"],       // 也可留空，用面板导入
+  "api_keys": [],                          // 留空=不校验客户端密钥
+  "http_proxy": "",                        // 如 http://127.0.0.1:10808
+  "ad_providers": ["gravity"],             // 广告保活 provider
+  "sqlite_path": "data/freebuff2api.sqlite",
+  "memory_path": "data/memory.sqlite",     // 记忆库（用户偏好/纠正）
+  "telemetry_path": "data/telemetry.sqlite", // 请求详情/事件链
+  "token_saver": false                     // 压缩超长 tool_result 省 token
+}
+```
+
+环境变量优先：`LISTEN_ADDR` / `AUTH_TOKENS` / `API_KEYS` / `HTTP_PROXY` / `SQLITE_PATH` / `AD_PROVIDERS`。
+
+**端口被占用？** 把 `listen_addr` 改成 `127.0.0.1:47822`（或任意空闲端口）即可；桌面版请在 `%APPDATA%\freebuff2api\config.json` 里改。
+
+---
+
+## 三、API 端点
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/v1/chat/completions` | POST | OpenAI 聊天（流式 / 非流式） |
+| `/v1/messages` | POST | Claude 聊天（双向转换，流式为 Anthropic 事件流） |
+| `/v1/models` | GET | 可用模型列表 |
+| `/v1/web/chat` | POST | web 协议对话（Cookie 鉴权，支持多模态 images） |
+| `/v1/uploads` | POST | 上传文件换取 storageId（裸 body + `x-file-name` 头） |
+| `/api/tokens/import` | POST | 导入 curl / HAR / Cookie（`{"cookie": "..."}` 或纯文本），同值自动去重 |
+| `/api/tokens` | GET | 已导入凭证（稳定 id / 掩码 / 类型 / 入库时间 / 账号信息缓存） |
+| `/api/tokens/check` | POST | 对指定凭证拉取账号全貌并刷新缓存 `{id}` |
+| `/api/tokens/delete` | POST | 删除凭证 `{id}`（同时移出账号池） |
+| `/api/account/overview` | GET | 账号全貌（身份 / 用量统计 / 套餐 / 今日剩余，全中文数据源） |
+| `/api/account/history` | GET | 账号使用记录 `?cred_id=&limit=` |
+| `/api/account/balance` | GET | 账号积分 / 每模型今日剩余 |
+| `/api/account/detail` | POST | 账号详情卡片 |
+| `/api/account/refresh` | POST | 凭证保活检查（上游 convex-token） |
+| `/api/guide` | GET | 客户端接入信息（地址 / Key 状态 / 模型数） |
+| `/api/extension/bundle` | GET | 下载浏览器一键登录扩展 zip |
+| `/api/config/api-key` | POST | 运行时生成 / 设置 / 清除下游 API Key（立即生效并写回 config.json） |
+| `/api/skills` | GET / POST | 技能列表（含 roster 预览）/ 新建·更新 |
+| `/api/skills/toggle` | POST | 启用 / 禁用技能 |
+| `/api/skills/delete` | POST | 删除自定义技能 |
+| `/api/skills/gate` | POST | 质量门预检（返回问题列表） |
+| `/api/logs/stream` | GET | 实时日志（SSE，支持 `Last-Event-ID` 断线补发） |
+| `/api/logs/recent` | GET | 最近日志（`?limit=200`） |
+| `/api/memory` | GET / POST | 记忆库（列表+统计 / 手动新增） |
+| `/api/memory/delete` | POST | 删除记忆 |
+| `/api/memory/static` | POST | 标记/取消"稳定事实" |
+| `/api/usage/cost` | GET | 速率与错误率（30 分钟滑窗） |
+| `/mcp` | POST | MCP JSON-RPC（只读工具：list_models / list_accounts / usage_summary） |
+| `/api/usage/requests/{id}` | GET | 单条请求详情（含遥测与事件链） |
+| `/api/usage/totals`｜`/daily`｜`/requests`｜`/models`｜`/accounts` | GET | 用量与账号统计 |
+| `/api/prompts`、`/api/prompts/toggle` | GET / POST | 内置提示词（旧接口，保留兼容） |
+| `/api/doctor` | GET | 系统体检 |
+| `/ui` | GET | 控制面板 |
+| `/healthz` | GET | 健康检查 |
+
+---
+
+## 四、思考程度（reasoning_effort）
+
+上游按模型支持不同的思考深度，网关自动降级 / 剥离不支持的档位：
+
+| 模型 | 支持范围 |
+|------|---------|
+| `deepseek/*`、`z-ai/glm`、`stealth/ox-alpha` | `low, high, max` |
+| `openai/gpt-5.6*`、`gemini-3.8`、`claude-fable-5` | `low, medium, high, xhigh, max` |
+| `meta/muse-spark*` | `minimal, low, medium, high, xhigh` |
+| `solar-pro4`、`minimax-m3`、`mimo-v2.5`、`kimi-k3`、`glm-5.2` | 不支持（自动剥离） |
+
+> v0.10 起 `mimo/mimo-v2.5` 已收录进模型目录（上游免费无限额度模型、上游 FALLBACK 落点，无 reasoning_effort 阶梯）。
+
+---
+
+## 五、常见问题（FAQ）
+
+**Q1：提示「no healthy upstream auth token available」**
+没有可用账号。打开面板 →「添加账号」，或按上文第 2 步导入。
+
+**Q2：请求很慢 / 返回 429 / `waiting_room_queued`**
+免费层有上游排队。网关会把排队状态翻译进错误信息；稍等重试，或添加更多账号提升并发。
+
+**Q3：账号突然失效（401/403）**
+Cookie 过期。网关会自动冷却该账号（10 分钟）并在日志里标注。到面板重新「一键登录」。
+
+**Q4：桌面版启动后窗口空白 / 连不上**
+多为端口冲突（47821 被占）或配置文件问题。托盘菜单 →「🩺 系统体检」可看到逐项诊断（配置 / 账号池 / 模型注册表 / 遥测 / 技能库 / 日志 / 版本），每项带修复建议；启动失败时也会弹窗提示原因（含端口冲突与日志路径）。
+
+**Q5：Claude Code 用不了**
+确认 `ANTHROPIC_BASE_URL` 没有多余斜杠，且网关在跑（浏览器打开 http://127.0.0.1:47821/healthz 应返回 JSON）。
+
+**Q6：想看网关到底做了什么**
+面板「实时日志」页显示每一次请求的路由、账号选择、重试、降级、上游错误；点开单条请求可看到「为什么慢 / 为什么失败」的人话解释。
+
+**Q7：配置了 api_keys 后，浏览器面板打不开数据**
+在面板右上角的「API Key」输入框填入你的 key（仅保存在本机浏览器 localStorage），刷新页面即可。
+
+---
+
+## 六、技能（Skills）
+
+面板「技能库」可以：
+
+- 启用 / 禁用技能（启用项的**名称与描述**会注入每次对话的 system 前缀）
+- 新建 / 编辑 / 删除自定义技能（Markdown 正文 + 触发描述；保存前有质量门检查，可疑的提示注入短语会被拦截）
+- 内置技能只读（不可编辑/删除，仅可启停）
+
+技能以 **roster 模式**注入（只注入名称与描述，预算默认 2000 token，可用 `max_roster_tokens` 调整），避免技能越多、每次请求越贵。技能文件存放在 `skills_dir`（默认 `data/skills/<id>/SKILL.md`），可直接编辑文件后重启同步。
+
+---
+
+## 七、记忆（AI 更懂你）
+
+网关会**自动学习**你的使用习惯（零 LLM 调用、纯本地规则）：
+
+- **偏好**：常用模型会被记录（下次相关时提示）
+- **纠正**：你在对话里说"记住…"、"别再…"、"always/never"等会记为高权重纠正
+- **反馈**：推理档位被自动降级等事件
+
+记忆按当前问题**检索后注入**（本地全文索引，支持中文），预算 512 token、以低权威块标注，不会喧宾夺主。面板「记忆」页可以查看、手动添加、删除，或把某条标为"稳定事实"。
+
+> 隐私：记忆全部存在本地 `data/memory.sqlite`，不经过任何第三方；删除即彻底移除。
+
+---
+
+## 八、免责声明
+
+本项目与 OpenAI、Codebuff、Freebuff 无官方关联，相关商标版权归各自所有者。
+
+所有内容仅供交流、实验与学习使用，按「原样（As-Is）」提供，不构成生产服务或专业建议，使用者自行承担风险。
+
+## 九、开源协议
+
+MIT
