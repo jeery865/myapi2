@@ -563,8 +563,17 @@ async function api(url, opt) {
   if (k) opt.headers['authorization'] = 'Bearer ' + k;
   const r = await fetch(url, opt);
   const text = await r.text();
-  if (!r.ok) { let m = text; try { m = JSON.parse(text).message || JSON.parse(text).error?.message || text; } catch (e) {} throw new Error(m); }
+  if (!r.ok) { let m = text; try { m = JSON.parse(text).message || JSON.parse(text).error?.message || text; } catch (e) {} throw new Error(apiErrHint(r.status, m)); }
   try { return JSON.parse(text); } catch (e) { return text; }
+}
+// 401/403 时给出可操作提示，不让用户对着「unauthorized」抓瞎。
+// 公网部署（Railway）的 Key 由 entrypoint 自动生成并打印在部署日志里（sk-fb- 开头），
+// 面板右上角输入框是唯一的"管理员登录"入口。
+function apiErrHint(status, msg) {
+  if (status === 401 || status === 403 || /unauthorized|仅本机可访问/i.test(String(msg))) {
+    return msg + ' —— 解决：去 Railway「Deploy Logs」找 sk-fb- 开头的 Key，粘到页面右上角输入框（仅存本机浏览器），再重试。';
+  }
+  return msg;
 }
 function toast(msg, ms) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', ms || 2600); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -1155,7 +1164,7 @@ async function downloadExtension() {
   // 改为 fetch（自动带面板里保存的 Key）+ Blob 落地。
   try {
     const r = await fetch('/api/extension/bundle', { headers: apiKey() ? { 'authorization': 'Bearer ' + apiKey() } : {} });
-    if (!r.ok) { let m = 'HTTP ' + r.status; try { const j = await r.json(); m = j.message || m; } catch (e) {} throw new Error(m); }
+    if (!r.ok) { let m = 'HTTP ' + r.status; try { const j = await r.json(); m = j.message || m; } catch (e) {} throw new Error(apiErrHint(r.status, m)); }
     const b = await r.blob();
     const u = URL.createObjectURL(b);
     const a = document.createElement('a');
