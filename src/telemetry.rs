@@ -674,22 +674,25 @@ mod tests {
         let path = dir.path().join("telemetry.db");
         let conn = Connection::open(&path).unwrap();
         conn.execute_batch(SCHEMA).unwrap();
-        let h1 = "2026-09-19T08:00:00.000Z";
-        let h2 = "2026-09-19T09:00:00.000Z";
-        insert_direct(&conn, "a", h1, "acct", "gpt-4o", 500, 100, Some(10));
-        insert_direct(&conn, "b", h1, "acct", "gpt-4o", 200, 100, Some(10));
-        insert_direct(&conn, "c", h1, "acct", "gpt-4o", 200, 100, Some(10));
-        insert_direct(&conn, "d", h1, "acct", "gpt-4o", 200, 100, Some(10));
-        insert_direct(&conn, "e", h2, "acct", "claude", 200, 100, Some(10));
-        insert_direct(&conn, "f", h2, "acct", "claude", 200, 100, Some(10));
+        // 用相对时间 —— 硬编码日期会滑出 24h 窗口导致测试必然失败（上游时间炸弹）
+        let t1 = Utc::now() - chrono::Duration::hours(3);
+        let t2 = Utc::now() - chrono::Duration::hours(2);
+        let h1 = t1.format("%Y-%m-%dT%H:00:00%.3fZ").to_string();
+        let h2 = t2.format("%Y-%m-%dT%H:00:00%.3fZ").to_string();
+        insert_direct(&conn, "a", &h1, "acct", "gpt-4o", 500, 100, Some(10));
+        insert_direct(&conn, "b", &h1, "acct", "gpt-4o", 200, 100, Some(10));
+        insert_direct(&conn, "c", &h1, "acct", "gpt-4o", 200, 100, Some(10));
+        insert_direct(&conn, "d", &h1, "acct", "gpt-4o", 200, 100, Some(10));
+        insert_direct(&conn, "e", &h2, "acct", "claude", 200, 100, Some(10));
+        insert_direct(&conn, "f", &h2, "acct", "claude", 200, 100, Some(10));
 
         let v = insights(path.to_str().unwrap(), 24).unwrap();
         let arr = v["worst_hours"].as_array().unwrap();
         assert_eq!(arr.len(), 2);
-        assert_eq!(arr[0]["hour_utc"], "2026-09-19T08");
+        assert_eq!(arr[0]["hour_utc"], t1.format("%Y-%m-%dT%H").to_string());
         assert_eq!(arr[0]["requests"], 4);
         assert_eq!(arr[0]["error_rate"], 0.25);
-        assert_eq!(arr[1]["hour_utc"], "2026-09-19T09");
+        assert_eq!(arr[1]["hour_utc"], t2.format("%Y-%m-%dT%H").to_string());
         assert_eq!(arr[1]["error_rate"], 0.0);
     }
 

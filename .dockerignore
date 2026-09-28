@@ -15,11 +15,15 @@ target
 
 # 与网关二进制无关的子项目
 desktop
-browser-extension
 cfworker
 legacy-go
 scripts
-tests
+# tests 里只有 fixtures 被编译期内嵌（src/models.rs 的 include_str!），其余排除
+tests/*
+!tests/fixtures
+
+# ⚠️ browser-extension 不能排除 —— src/extension.rs 用 include_str!/include_bytes!
+# 内嵌了 manifest/background/bridge/options/icon128.png，Docker 构建上下文必须包含它。
 
 # 文档与平台配置（编译不需要）
 *.md
