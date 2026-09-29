@@ -881,6 +881,8 @@ async function loadGuide() {
     g = { listen_addr: location.host, openai_base_url: '/v1', anthropic_base_url: '/', api_keys: null, api_key_hint: '', models_count: null, models_sample: [], data_plane_ready: null };
   }
   guideCache = g;
+  extExpect = g.extension_version || '';
+  renderExtStatus();
   const base = location.origin;
   if ($('c-base')) {
     $('c-base').value = base;
@@ -1121,7 +1123,7 @@ function explain(r) {
 // ---------- 浏览器扩展桥（面板 ↔ 扩展 直连） ----------
 // 扩展的 bridge.js content script 会 postMessage 广播自己的 id；
 // 拿到 id 后本页就能用 chrome.runtime.sendMessage 直接指挥扩展读 Cookie（真正的一键登录）。
-let extId = null, extVersion = '';
+let extId = null, extVersion = '', extExpect = '';
 function pingExtension(showToast) {
   try { window.postMessage({ source: 'freebuff2api-page', type: 'ping' }, location.origin); } catch (e) {}
   if (showToast) setTimeout(() => {
@@ -1140,8 +1142,19 @@ window.addEventListener('message', (e) => {
 function renderExtStatus() {
   const el = $('ext-status');
   if (!el) return;
-  if (extId) { el.className = 'badge ok'; el.textContent = `扩展已就绪 v${extVersion || '?'}`; }
-  else { el.className = 'badge dim'; el.textContent = '未检测到扩展（可手动粘贴导入）'; }
+  if (extId) {
+    // 版本错配 = 装了旧 zip（旧版白名单不含当前部署域名 → 永远不会握手）
+    const stale = extExpect && extVersion && extVersion !== extExpect;
+    el.className = 'badge ' + (stale ? 'warn' : 'ok');
+    el.textContent = stale
+      ? `扩展版本过旧 v${extVersion}（应为 v${extExpect}）—— 请重新下载安装`
+      : `扩展已就绪 v${extVersion || '?'}`;
+    return;
+  }
+  el.className = 'badge dim';
+  el.textContent = extExpect
+    ? `未检测到扩展（当前应为 v${extExpect}，若装的是旧版请重新下载安装后刷新本页）`
+    : '未检测到扩展（可手动粘贴导入）';
 }
 function extensionAvailable() {
   return !!extId && typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function';

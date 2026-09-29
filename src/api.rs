@@ -2093,6 +2093,9 @@ async fn handle_guide(State(st): State<AppState>, headers: HeaderMap) -> Respons
         "models_sample": models.iter().take(8).cloned().collect::<Vec<_>>(),
         "credential": web_cookie,
         "data_plane_ready": web_cookie.is_some(),
+        // 本二进制内嵌的扩展版本：面板据此提示「你装的扩展是不是旧版」
+        // （扩展白名单随部署域名变化，版本错配是"未检测到扩展"的最常见原因）
+        "extension_version": crate::extension::version(),
     }))
     .into_response()
 }
