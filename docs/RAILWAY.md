@@ -115,7 +115,10 @@ curl -s -H "Authorization: Bearer <API_KEYS>" https://<你的域名>/v1/models |
 没挂卷，或卷的 Mount path 不是 `/data`。确认变量 `DATA_DIR` 与卷挂载点一致。
 
 **`API_KEYS` 每次重新部署都变**
-没挂卷时入口脚本只能随机生成，而随机值不持久。挂卷后入口脚本**不会**覆盖已有配置；要彻底固定就在 Railway 变量里显式设 `API_KEYS`。
+自动生成的 Key 会写入 `/data/.auto_api_key` 持久化 —— 挂了卷就跨部署不变（没挂卷时内存级随机，重启即换）。要彻底固定就在 Railway 变量里显式设 `API_KEYS`（优先级高于自动生成）。
+
+**「生成并启用 Key」按钮报 unauthorized**
+这是管理端点，需要先用**当前生效的 Key**（Deploy Logs 里 `sk-fb-` 开头那把）粘到面板右上角登录，才能生成新的。不是 bug：公网下若允许匿名重置 Key，任何人都能劫持你的网关。
 
 **想用自己的 config.json**
 把它放到卷里（`/data/config.json`）。存在时入口脚本改用 `--config /data/config.json` 启动，环境变量仍然优先覆盖。注意容器里 `listen_addr` 要写 `0.0.0.0`，路径建议用 `/data/...` 绝对路径。

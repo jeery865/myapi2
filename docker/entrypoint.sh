@@ -22,22 +22,33 @@ mkdir -p "$DATA_DIR" 2>/dev/null || echo "[entrypoint] 警告：无法创建 $DA
 
 # --- api_keys：对外监听必须配置（config.rs::validate 会硬拒绝裸奔）----------------
 # PaaS 上不适合让用户先读文档再设变量 —— 未提供就自动生成一个并打到日志里。
-# Railway 的 Deploy Logs 能看到；用户也可以随时改成自己的值。
+# 关键：生成的 Key 持久化到 $DATA_DIR/.auto_api_key（挂了卷就跨部署稳定），
+# 否则每次重新部署都换 Key，用户粘到面板/客户端里的旧 Key 直接作废。
 if [ -z "${API_KEYS:-}" ]; then
-  if command -v openssl >/dev/null 2>&1; then
-    generated="sk-fb-$(openssl rand -hex 24)"
+  key_file="$DATA_DIR/.auto_api_key"
+  if [ -s "$key_file" ]; then
+    API_KEYS="$(cat "$key_file")"
+    echo "[entrypoint] 未设置 API_KEYS：沿用持久化的自动生成 Key（$key_file）"
   else
-    generated="sk-fb-$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
+    if command -v openssl >/dev/null 2>&1; then
+      generated="sk-fb-$(openssl rand -hex 24)"
+    else
+      generated="sk-fb-$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
+    fi
+    API_KEYS="$generated"
+    printf '%s\n' "$API_KEYS" > "$key_file" 2>/dev/null \
+      && chmod 600 "$key_file" 2>/dev/null \
+      || echo "[entrypoint] 警告：无法持久化自动生成的 Key（$key_file 不可写），下次重启会换新 Key"
   fi
-  API_KEYS="$generated"
   export API_KEYS
   echo "======================================================================"
-  echo "[entrypoint] 未设置 API_KEYS：已自动生成一个，用作客户端的 api key"
+  echo "[entrypoint] 当前 API key（即面板右上角要粘的那个）"
   echo ""
   echo "    $API_KEYS"
   echo ""
-  echo "  面板「接入指南」里也可以直接复制；想固定下来请在平台变量里显式设置 API_KEYS。"
-  echo "  （没有挂持久卷时，每次重新部署这个值都会变）"
+  echo "  - 首次自动生成时已写入 $key_file，挂了持久卷则跨部署不变"
+  echo "  - 想自己指定：在平台变量里设 API_KEYS=<你的值>（优先级更高）"
+  echo "  - 「生成并启用 Key」按钮需先用上面这把 Key 登录（右上角）才能用"
   echo "======================================================================"
 fi
 
