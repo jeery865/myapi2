@@ -1,25 +1,39 @@
 {
   "manifest_version": 3,
   "name": "Freebuff2API 一键登录",
-  "version": "1.1.0",
-  "description": "读取 freebuff.com 的登录凭证（含 HttpOnly Cookie）并一键发送到本地 Freebuff2API 网关；面板点「一键登录」全自动，未登录时自动打开登录页等待。",
+  "version": "1.2.0",
+  "description": "读取 freebuff.com 的登录凭证（含 HttpOnly Cookie）并一键发送到 Freebuff2API 网关；面板点「一键登录」全自动，未登录时自动打开登录页等待。支持本机网关与 Railway 公网部署（*.up.railway.app）。",
   "permissions": ["cookies", "notifications", "storage"],
-  "host_permissions": ["https://freebuff.com/*", "https://*.freebuff.com/*", "http://127.0.0.1/*", "http://localhost/*"],
+  "host_permissions": [
+    "https://freebuff.com/*",
+    "https://*.freebuff.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "https://*.up.railway.app/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["http://127.0.0.1/*", "http://localhost/*"],
+      "matches": [
+        "http://127.0.0.1/*",
+        "http://localhost/*",
+        "https://*.up.railway.app/*"
+      ],
       "js": ["bridge.js"],
       "run_at": "document_start"
     }
   ],
   "externally_connectable": {
-    "matches": ["http://127.0.0.1/*", "http://localhost/*"]
+    "matches": [
+      "http://127.0.0.1/*",
+      "http://localhost/*",
+      "https://*.up.railway.app/*"
+    ]
   },
   "action": {
-    "default_title": "把 Freebuff 登录凭证导入本地网关",
+    "default_title": "把 Freebuff 登录凭证导入网关",
     "default_icon": {
       "128": "icons/icon128.png"
     }

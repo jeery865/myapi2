@@ -1,4 +1,4 @@
-// Freebuff2API 面板 ↔ 扩展 桥接（content script，仅注入 127.0.0.1 / localhost）
+// Freebuff2API 面板 ↔ 扩展 桥接（content script，注入本机面板与 Railway *.up.railway.app 面板）
 // 作用：把扩展 ID 与版本号通过 window.postMessage 告诉网关控制面板（/ui），
 // 面板拿到 ID 后即可用 chrome.runtime.sendMessage(扩展ID, {type:'freebuff2api.import'}) 直连扩展。
 // 背景：content script 与页面共享同一个 window，postMessage 是两者唯一可用的通信方式。

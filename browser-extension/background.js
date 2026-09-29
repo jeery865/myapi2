@@ -11,7 +11,8 @@
 //   5) 网关 API Key：面板传入 > 选项页保存；有 Key 时带 authorization: Bearer 头，收到 401 明确提示。
 //
 // 安全边界：只读取 freebuff.com 域下的 Cookie（HttpOnly 的 session-token 只有扩展读得到），
-// 只发送到本机 127.0.0.1，不接触账号密码。
+// 只发送到发起请求的网关面板同源（本机 127.0.0.1 或 Railway *.up.railway.app 域名），
+// 不接触账号密码。允许的来源白名单见 isAllowedPanelOrigin。
 
 const DEFAULT_PORTS = [47821, 47822, 8787];
 const SESSION_COOKIE = '__Secure-next-auth.session-token';
@@ -123,7 +124,34 @@ async function candidatePorts(panelPort) {
 // ---------- 导入 ----------
 
 /**
- * POST 到指定端口。
+ * POST 到面板同源（公网部署：Railway 等 https 域名）。
+ * reached=false 仅代表连接层失败；一旦收到 HTTP 响应（无论状态码），都视为「到达网关」。
+ */
+async function postToOrigin(origin, cookie, apiKey) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(function () { ctrl.abort(); }, FETCH_TIMEOUT_MS);
+  try {
+    const headers = { 'content-type': 'application/json' };
+    if (apiKey) headers.authorization = 'Bearer ' + apiKey; // 网关未配置 api_keys 时不加此头
+    const resp = await fetch(origin + '/api/tokens/import', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ cookie: cookie }),
+      signal: ctrl.signal,
+    });
+    const text = await resp.text();
+    let body = null;
+    try { body = JSON.parse(text); } catch (e) { /* 非 JSON 响应 */ }
+    return { reached: true, httpOk: resp.ok, status: resp.status, body: body };
+  } catch (e) {
+    return { reached: false, error: String((e && e.message) || e) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * POST 到指定端口（本机场景）。
  * reached=false 仅代表连接层失败（拒绝连接/超时/中断），此时才应该换下一个端口；
  * 一旦收到 HTTP 响应（无论状态码），都视为「到达网关」。
  */
@@ -150,8 +178,22 @@ async function postToGateway(port, cookie, apiKey) {
   }
 }
 
-async function importCookieToGateway(cookie, panelPort, panelApiKey) {
+/**
+ * 导入到网关。
+ * panelOrigin 非本机（https 公网域名，如 Railway）→ 直接 POST 面板同源，无端口探测；
+ * 本机 → 端口序列探测（原逻辑）。
+ */
+async function importCookieToGateway(cookie, panelOrigin, panelPort, panelApiKey) {
   const apiKey = normalizeApiKey(panelApiKey) || (await storedApiKey()); // 面板优先，回退选项页
+  if (panelOrigin && !isLocalPanelOrigin(panelOrigin)) {
+    const r = await postToOrigin(panelOrigin, cookie, apiKey);
+    if (!r.reached) return { ok: false, host: panelOrigin, error: r.error || '连接网关失败' };
+    if (r.httpOk && r.body && r.body.ok) {
+      return { ok: true, host: panelOrigin, added: Number(r.body.added) || 0, message: r.body.message || '' };
+    }
+    const msg = (r.body && (r.body.message || r.body.error)) || ('HTTP ' + r.status);
+    return { ok: false, host: panelOrigin, error: String(msg), unauthorized: r.status === 401 };
+  }
   const ports = await candidatePorts(panelPort);
   let lastErr = '';
   for (const port of ports) {
@@ -166,32 +208,37 @@ async function importCookieToGateway(cookie, panelPort, panelApiKey) {
   return { ok: false, port: 0, error: lastErr || '连接本地网关失败（连接被拒绝）' };
 }
 
+/** 结果展示用：优先域名（公网），否则本机端口 */
+function resultWhere(res) {
+  return res.host || ('网关端口 ' + (res.port || '?'));
+}
+
 function notifyImportResult(res) {
   if (res.ok) {
     if (res.added > 0) {
       notify(
         '✅ 已自动导入 ' + res.added + ' 个凭证',
-        '来源：freebuff.com 登录 Cookie（网关端口 ' + res.port + '）。回到面板点「刷新」即可看到账号全貌。'
+        '来源：freebuff.com 登录 Cookie（' + resultWhere(res) + '）。回到面板点「刷新」即可看到账号全貌。'
       );
     } else {
-      notify('✅ 凭证已存在，无需重复导入', '同值自动去重（网关端口 ' + res.port + '）。');
+      notify('✅ 凭证已存在，无需重复导入', '同值自动去重（' + resultWhere(res) + '）。');
     }
     return;
   }
   if (res.unauthorized) {
     notify(
       '🔑 网关已启用 API Key 校验',
-      '请在扩展选项页填入面板显示的 Key（右键扩展图标 →「选项」→ 网关 API Key），然后重试。网关端口 ' + res.port + '。'
+      '请在扩展选项页填入面板显示的 Key（右键扩展图标 →「选项」→ 网关 API Key），然后重试。' + resultWhere(res)
     );
     return;
   }
-  if (res.port) {
-    notify('导入失败（端口 ' + res.port + '）', String(res.error).slice(0, 180));
+  if (res.host || res.port) {
+    notify('导入失败（' + resultWhere(res) + '）', String(res.error).slice(0, 180));
   } else {
     notify(
-      '连接本地网关失败',
-      '请确认 Freebuff2API 已启动（默认端口 47821）。若改过端口：右键扩展图标 →「选项」填写，' +
-        '或直接在网关面板点「一键登录」（面板会自动带上自己的端口）。' +
+      '连接网关失败',
+      '请确认 Freebuff2API 已启动。本机部署：确认网关进程在跑（默认端口 47821），或右键扩展图标 →「选项」填写端口。' +
+        '公网部署：请直接在网关面板点「一键登录」（扩展会从面板来源推断网关地址）。' +
         (res.error ? ' 最后错误：' + String(res.error).slice(0, 120) : '')
     );
   }
@@ -241,10 +288,12 @@ async function waitForSessionCookie(timeoutMs) {
 // ---------- 主流程（同一时间只跑一条，重复触发复用进行中的流程） ----------
 
 let runningFlow = null;
-let flowPanelPort = 0; // 进行中的流程读取最新面板端口：等待登录期间面板再次触发也能用上
-let flowApiKey = '';   // 同上：面板传入的 API Key 优先，流程中途加入也能生效
+let flowPanelOrigin = ''; // 进行中的流程记住面板来源：公网部署时导入直接 POST 到该同源
+let flowPanelPort = 0;    // 本机场景：进行中的流程读取最新面板端口（等待登录期间再次触发也能用上）
+let flowApiKey = '';      // 同上：面板传入的 API Key 优先，流程中途加入也能生效
 
-function startFlow(panelPort, panelApiKey) {
+function startFlow(panelOrigin, panelPort, panelApiKey) {
+  if (panelOrigin) flowPanelOrigin = panelOrigin;
   const p = normalizePort(panelPort);
   if (p) flowPanelPort = p;
   const k = normalizeApiKey(panelApiKey);
@@ -254,14 +303,14 @@ function startFlow(panelPort, panelApiKey) {
     try {
       const r = await readFreebuffCookie();
       if (r.ok) {
-        const res = await importCookieToGateway(r.cookie, flowPanelPort, flowApiKey);
+        const res = await importCookieToGateway(r.cookie, flowPanelOrigin, flowPanelPort, flowApiKey);
         notifyImportResult(res);
         return res;
       }
       // 未登录：自动打开 freebuff.com 并等待登录
       notify(
         '已打开 freebuff.com，请完成 GitHub 登录',
-        '登录成功后会自动把凭证导入本地网关，无需手动复制。'
+        '登录成功后会自动把凭证导入网关，无需手动复制。'
       );
       await openOrFocusFreebuff();
       const got = await waitForSessionCookie(LOGIN_TIMEOUT_MS);
@@ -271,7 +320,7 @@ function startFlow(panelPort, panelApiKey) {
       }
       const after = await readFreebuffCookie();
       if (!after.ok) return { ok: false, port: 0, error: after.reason };
-      const res = await importCookieToGateway(after.cookie, flowPanelPort, flowApiKey);
+      const res = await importCookieToGateway(after.cookie, flowPanelOrigin, flowPanelPort, flowApiKey);
       notifyImportResult(res);
       return res;
     } catch (e) {
@@ -280,6 +329,7 @@ function startFlow(panelPort, panelApiKey) {
     } finally {
       // 流程结束（含异常），允许下一次触发启动新流程；本身不会 reject
       runningFlow = null;
+      flowPanelOrigin = '';
       flowPanelPort = 0;
       flowApiKey = '';
     }
@@ -303,10 +353,26 @@ function isLocalPanelOrigin(origin) {
          origin === 'http://localhost' || origin.indexOf('http://localhost:') === 0;
 }
 
+/**
+ * 允许与扩展通信的面板来源：本机，或 Railway 公网部署（https 的 *.up.railway.app）。
+ * 与 manifest.json 的 externally_connectable / content_scripts 白名单保持一致。
+ * 凭证只发送到 sender.origin（见 importCookieToGateway），不会落到第三方手里。
+ */
+function isAllowedPanelOrigin(origin) {
+  if (isLocalPanelOrigin(origin)) return true;
+  try {
+    const u = new URL(origin);
+    return u.protocol === 'https:' &&
+      (u.hostname === 'up.railway.app' || u.hostname.slice(-('.up.railway.app').length) === '.up.railway.app');
+  } catch (e) {
+    return false;
+  }
+}
+
 chrome.runtime.onMessageExternal.addListener(function (msg, sender, sendResponse) {
   const origin = senderOrigin(sender);
-  if (!isLocalPanelOrigin(origin)) {
-    try { sendResponse({ ok: false, error: 'forbidden_origin', message: '来源不在允许范围（仅本机网关面板可用）' }); } catch (e) { /* 通道已关 */ }
+  if (!isAllowedPanelOrigin(origin)) {
+    try { sendResponse({ ok: false, error: 'forbidden_origin', message: '来源不在允许范围（仅本机面板或 Railway *.up.railway.app 部署可用）' }); } catch (e) { /* 通道已关 */ }
     return false;
   }
   if (!msg || msg.type !== 'freebuff2api.import') {
@@ -327,7 +393,7 @@ chrome.runtime.onMessageExternal.addListener(function (msg, sender, sendResponse
       let doneRes = null;
       try {
         doneRes = await Promise.race([
-          startFlow(panelPort, panelApiKey),
+          startFlow(origin, panelPort, panelApiKey),
           sleep(RESPONSE_GUARD_MS * 2).then(function () { return null; }),
         ]);
       } catch (e) { /* 极端情况：回退 started */ }
@@ -355,13 +421,13 @@ chrome.runtime.onMessageExternal.addListener(function (msg, sender, sendResponse
     try {
       sendResponse({ ok: true, phase: 'started', needLogin: true });
     } catch (e) { /* 面板已离开，流程照跑 */ }
-    startFlow(panelPort, panelApiKey);
+    startFlow(origin, panelPort, panelApiKey);
   })();
   return true; // 通道保持到上面 sendResponse 被调用（毫秒级）
 });
 
-// ---------- 点击扩展图标：同一条流程（API Key 走选项页回退） ----------
+// ---------- 点击扩展图标：同一条流程（API Key 走选项页回退；无面板来源时按本机端口探测） ----------
 
 chrome.action.onClicked.addListener(function () {
-  startFlow(0, '');
+  startFlow('', 0, '');
 });
