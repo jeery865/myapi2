@@ -43,3 +43,4 @@ tests/e2e_phase_g.config.json
 
 # 旧产物归档（不入库）
 _archive_旧产物/
+panel-preview.html
