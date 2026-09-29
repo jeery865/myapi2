@@ -122,7 +122,11 @@ fn origin_allowed(headers: &HeaderMap) -> bool {
         return true;
     }
     // `scheme://host[:port]` → `host[:port]`；Origin 不带路径，也不带结尾斜杠
-    let origin_host = origin.split("://").nth(1).unwrap_or("").trim_end_matches('/');
+    let origin_host = origin
+        .split("://")
+        .nth(1)
+        .unwrap_or("")
+        .trim_end_matches('/');
     let host = headers
         .get("host")
         .and_then(|v| v.to_str().ok())
@@ -6136,7 +6140,10 @@ mod tests {
 
         // 扩展 / file:// 例外
         let mut ext = HeaderMap::new();
-        ext.insert("origin", "chrome-extension://abcdefghijklmnop".parse().unwrap());
+        ext.insert(
+            "origin",
+            "chrome-extension://abcdefghijklmnop".parse().unwrap(),
+        );
         assert!(origin_allowed(&ext), "浏览器扩展是一键登录的合法来源");
         let mut file = HeaderMap::new();
         file.insert("origin", "file://".parse().unwrap());

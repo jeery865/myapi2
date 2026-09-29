@@ -475,14 +475,23 @@ mod tests {
     #[test]
     fn rewrite_port_keeps_explicit_non_loopback_host() {
         assert_eq!(rewrite_port("0.0.0.0:47821", 8080), "0.0.0.0:8080");
-        assert_eq!(rewrite_port("192.168.1.10:47821", 8080), "192.168.1.10:8080");
+        assert_eq!(
+            rewrite_port("192.168.1.10:47821", 8080),
+            "192.168.1.10:8080"
+        );
         // 显式 IPv6 要保持方括号，否则拼出来不是一个合法监听地址
-        assert_eq!(rewrite_port("[2001:db8::1]:47821", 8080), "[2001:db8::1]:8080");
+        assert_eq!(
+            rewrite_port("[2001:db8::1]:47821", 8080),
+            "[2001:db8::1]:8080"
+        );
     }
 
     #[test]
     fn under_data_dir_moves_relative_paths_only() {
-        assert_eq!(under_data_dir("data/freebuff2api.sqlite", "/data"), "/data/freebuff2api.sqlite");
+        assert_eq!(
+            under_data_dir("data/freebuff2api.sqlite", "/data"),
+            "/data/freebuff2api.sqlite"
+        );
         assert_eq!(under_data_dir("data/skills", "/data"), "/data/skills");
         assert_eq!(under_data_dir("tokens.json", "/data"), "/data/tokens.json");
         // 绝对路径不动（用户已经写死到卷上的情形）
